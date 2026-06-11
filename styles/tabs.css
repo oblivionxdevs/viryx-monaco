@@ -1,0 +1,131 @@
+/* ============================================================
+   VIRYX SCRIPT EDITOR — TABS STYLES
+   ============================================================ */
+
+.header-bar {
+  display: flex;
+  align-items: center;
+  height: var(--header-h);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.tabs-scroll {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  min-width: 0;
+}
+.tabs-scroll::-webkit-scrollbar { height: 0; } /* Hide tab scrollbar */
+
+/* Individual Tab */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px 0 12px;
+  border-radius: 5px 5px 0 0;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-width: 90px;
+  max-width: 160px;
+  border-top-width: 2px;
+}
+.tab:hover {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.tab.active {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  border-top-color: var(--accent); /* Glowing top highlight */
+}
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--bg-base);
+}
+
+.tab-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+/* Tab Close Button */
+.tab-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.tab:hover .tab-close,
+.tab.active .tab-close { opacity: 1; }
+.tab-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Header Action Buttons (Add Tab & Settings) */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+  height: 100%;
+}
+
+.header-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+  position: relative;
+}
+.header-btn svg { opacity: 0.7; transition: opacity 0.15s; }
+.header-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.header-btn:hover svg { opacity: 1; }
+.header-btn:active { transform: scale(0.92); }
+#btn-settings:hover svg { transform: rotate(20deg); }
+#btn-settings svg { transition: transform 0.3s ease; }
