@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viryx Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/tabs.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
+  <link rel="stylesheet" href="styles/animations.css" />
+</head>
+<body>
+  <!-- Viryx Loader Overlay -->
+  <div id="loading-overlay">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <div class="loading-text">
+        <strong>Loading Viryx Editor</strong>
+        <p>Please wait while Monaco initializes...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header Bar: Tab Manager & Config Utilities -->
+  <div class="header-bar" id="header-bar">
+    <div class="tabs-scroll" id="tabs-container">
+      <!-- Tabs injected by renderer.js -->
+    </div>
+    
+    <div class="header-actions">
+      <!-- Add Tab Button -->
+      <button class="header-btn" id="btn-add-tab" title="New Tab">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/>
+        </svg>
+      </button>
+      <!-- Settings Panel Trigger -->
+      <button class="header-btn" id="btn-settings" title="Settings">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8h1.5M13 8h1.5M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Monaco Editor Container -->
+  <div class="editor-area" id="editor-area">
+    <div id="monaco-editor"></div>
+  </div>
+
+  <!-- Editor Settings Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal glass-modal">
+      <div class="modal-header">
+        <span>Editor Settings</span>
+        <button class="modal-close" id="settings-modal-close" title="Close Panel">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="2" x2="14" y2="14"/><line x1="14" y1="2" x2="2" y2="14"/></svg>
+        </button>
+      </div>
+      <div class="settings-body">
+        <!-- Styling Section -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">Visual Theme</h3>
+          <div class="theme-grid">
+            <button class="theme-card active" data-theme="viryx-hologram">
+              <div class="theme-preview viryx-hologram-preview"></div>
+              <span>Viryx Hologram</span>
+            </button>
+            <button class="theme-card" data-theme="midnight">
+              <div class="theme-preview midnight-preview"></div>
+              <span>Midnight</span>
+            </button>
+            <button class="theme-card" data-theme="dracula">
+              <div class="theme-preview dracula-preview"></div>
+              <span>Dracula</span>
+            </button>
+            <button class="theme-card" data-theme="one-dark">
+              <div class="theme-preview one-dark-preview"></div>
+              <span>One Dark</span>
+            </button>
+            <button class="theme-card" data-theme="github-dark">
+              <div class="theme-preview github-dark-preview"></div>
+              <span>GitHub Dark</span>
+            </button>
+            <button class="theme-card" data-theme="synthwave">
+              <div class="theme-preview synthwave-preview"></div>
+              <span>Synthwave</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Editor Configs -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">Editor Preferences</h3>
+          
+          <div class="settings-row">
+            <label>Font Size</label>
+            <div class="settings-control">
+              <input type="range" min="10" max="24" value="14" id="setting-font-size" class="slider" />
+              <span class="slider-value" id="setting-font-size-val">14px</span>
+            </div>
+          </div>
+          
+          <div class="settings-row">
+            <label>Font Family</label>
+            <select class="settings-select" id="setting-font">
+              <option value="JetBrains Mono">JetBrains Mono</option>
+              <option value="Consolas">Consolas</option>
+              <option value="Fira Code">Fira Code</option>
+              <option value="monospace">System Mono</option>
+            </select>
+          </div>
+          
+          <div class="settings-row">
+            <label>Word Wrap</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-wordwrap" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          
+          <div class="settings-row">
+            <label>Minimap</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-minimap" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+          
+          <div class="settings-row">
+            <label>Line Numbers</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-linenums" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- About Info -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">About</h3>
+          <div class="settings-about">
+            <div class="about-logo">V</div>
+            <div class="about-info">
+              <div class="about-name">Viryx Script Editor</div>
+              <div class="about-version">v1.0.0 · WebView2 Edition</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
