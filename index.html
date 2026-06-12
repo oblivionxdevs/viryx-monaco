@@ -3,157 +3,441 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Viryx Editor</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles/main.css" />
-  <link rel="stylesheet" href="styles/tabs.css" />
-  <link rel="stylesheet" href="styles/settings.css" />
-  <link rel="stylesheet" href="styles/animations.css" />
+  <title>Viryx Monaco Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a0a0a;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      width: 100%; height: 100%;
+    }
+
+    /* ── Tab bar ── */
+    #tab-bar {
+      display: flex;
+      align-items: stretch;
+      background: #0d0d0d;
+      border-bottom: 1px solid #1e1230;
+      height: 32px;
+      flex-shrink: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      user-select: none;
+    }
+    #tab-bar::-webkit-scrollbar { height: 0; }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px 0 12px;
+      font-size: 12px;
+      color: #6a5a8a;
+      border-right: 1px solid #1a1028;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: color 0.15s, background 0.15s;
+    }
+    .tab:hover { color: #b08ad4; background: #130b20; }
+    .tab.active { color: #d4b8ff; background: #0a0a0a; border-bottom: 2px solid #b06cff; }
+
+    .tab .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #b06cff;
+      flex-shrink: 0;
+      display: none;
+    }
+    .tab.unsaved .dot { display: block; }
+    .tab.unsaved .tab-close { display: none; }
+    .tab.unsaved:hover .tab-close { display: flex; }
+    .tab.unsaved:hover .dot { display: none; }
+
+    .tab-name {
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tab-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px; height: 16px;
+      border-radius: 3px;
+      font-size: 13px;
+      color: #6a5a8a;
+      flex-shrink: 0;
+      transition: background 0.1s, color 0.1s;
+    }
+    .tab-close:hover { background: #3a1f5e; color: #ff6b6b; }
+    .tab.active .tab-close { color: #9070c0; }
+
+    #btn-new-tab {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      flex-shrink: 0;
+      color: #4a3a6a;
+      font-size: 18px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    #btn-new-tab:hover { color: #b06cff; }
+
+    /* ── Editor ── */
+    #editor-container { flex: 1; min-height: 0; position: relative; }
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f0f0f; }
+    ::-webkit-scrollbar-thumb { background: #3a1f5e; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #7b3fc4; }
+  </style>
 </head>
 <body>
-  <!-- Viryx Loader Overlay -->
-  <div id="loading-overlay">
-    <div class="loading-content">
-      <div class="spinner"></div>
-      <div class="loading-text">
-        <strong>Loading Viryx Editor</strong>
-        <p>Please wait while Monaco initializes...</p>
-      </div>
+  <div id="app">
+    <div id="tab-bar">
+      <div id="btn-new-tab" title="New tab">+</div>
     </div>
+    <div id="editor-container"></div>
   </div>
 
-  <!-- Header Bar: Tab Manager & Config Utilities -->
-  <div class="header-bar" id="header-bar">
-    <div class="tabs-scroll" id="tabs-container">
-      <!-- Tabs injected by renderer.js -->
-    </div>
-    
-    <div class="header-actions">
-      <!-- Add Tab Button -->
-      <button class="header-btn" id="btn-add-tab" title="New Tab">
-        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/>
-        </svg>
-      </button>
-      <!-- Settings Panel Trigger -->
-      <button class="header-btn" id="btn-settings" title="Settings">
-        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8h1.5M13 8h1.5M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/>
-        </svg>
-      </button>
-    </div>
-  </div>
+  <script>
+  (function () {
 
-  <!-- Monaco Editor Container -->
-  <div class="editor-area" id="editor-area">
-    <div id="monaco-editor"></div>
-  </div>
+    var tabs       = [];
+    var activeId   = null;
+    var tabCounter = 0;
+    var editor     = null;
 
-  <!-- Editor Settings Modal -->
-  <div class="modal-overlay" id="settings-modal">
-    <div class="modal glass-modal">
-      <div class="modal-header">
-        <span>Editor Settings</span>
-        <button class="modal-close" id="settings-modal-close" title="Close Panel">
-          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="2" x2="14" y2="14"/><line x1="14" y1="2" x2="2" y2="14"/></svg>
-        </button>
-      </div>
-      <div class="settings-body">
-        <!-- Styling Section -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">Visual Theme</h3>
-          <div class="theme-grid">
-            <button class="theme-card active" data-theme="viryx-hologram">
-              <div class="theme-preview viryx-hologram-preview"></div>
-              <span>Viryx Hologram</span>
-            </button>
-            <button class="theme-card" data-theme="midnight">
-              <div class="theme-preview midnight-preview"></div>
-              <span>Midnight</span>
-            </button>
-            <button class="theme-card" data-theme="dracula">
-              <div class="theme-preview dracula-preview"></div>
-              <span>Dracula</span>
-            </button>
-            <button class="theme-card" data-theme="one-dark">
-              <div class="theme-preview one-dark-preview"></div>
-              <span>One Dark</span>
-            </button>
-            <button class="theme-card" data-theme="github-dark">
-              <div class="theme-preview github-dark-preview"></div>
-              <span>GitHub Dark</span>
-            </button>
-            <button class="theme-card" data-theme="synthwave">
-              <div class="theme-preview synthwave-preview"></div>
-              <span>Synthwave</span>
-            </button>
-          </div>
-        </div>
+    // Resolve Monaco base path (works with file://, custom protocols, WebView2)
+    var base = (function () {
+      if (document.currentScript && document.currentScript.src)
+        return document.currentScript.src.replace(/\/[^\/]*$/, '');
+      return window.location.href.replace(/\/[^\/]*$/, '');
+    })();
 
-        <!-- Editor Configs -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">Editor Preferences</h3>
-          
-          <div class="settings-row">
-            <label>Font Size</label>
-            <div class="settings-control">
-              <input type="range" min="10" max="24" value="14" id="setting-font-size" class="slider" />
-              <span class="slider-value" id="setting-font-size-val">14px</span>
-            </div>
-          </div>
-          
-          <div class="settings-row">
-            <label>Font Family</label>
-            <select class="settings-select" id="setting-font">
-              <option value="JetBrains Mono">JetBrains Mono</option>
-              <option value="Consolas">Consolas</option>
-              <option value="Fira Code">Fira Code</option>
-              <option value="monospace">System Mono</option>
-            </select>
-          </div>
-          
-          <div class="settings-row">
-            <label>Word Wrap</label>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-wordwrap" />
-              <span class="toggle-track"></span>
-            </label>
-          </div>
-          
-          <div class="settings-row">
-            <label>Minimap</label>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-minimap" checked />
-              <span class="toggle-track"></span>
-            </label>
-          </div>
-          
-          <div class="settings-row">
-            <label>Line Numbers</label>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-linenums" checked />
-              <span class="toggle-track"></span>
-            </label>
-          </div>
-        </div>
+    var loaderScript = document.createElement('script');
+    loaderScript.src = base + '/vs/loader.js';
+    loaderScript.onerror = function () {
+      document.body.innerHTML =
+        '<div style="color:#ff4444;font-family:Consolas,monospace;padding:20px">' +
+        '[ERR] Failed to load vs/loader.js — make sure the vs/ folder is next to index.html</div>';
+    };
+    loaderScript.onload = function () {
+      require.config({ paths: { vs: base + '/vs' } });
+      require(['vs/editor/editor.main'], init);
+    };
+    document.head.appendChild(loaderScript);
 
-        <!-- About Info -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">About</h3>
-          <div class="settings-about">
-            <div class="about-logo">V</div>
-            <div class="about-info">
-              <div class="about-name">Viryx Script Editor</div>
-              <div class="about-version">v1.0.0 · WebView2 Edition</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+    // ── Init ──────────────────────────────────────────────────────────────────
+    function init() {
 
-  <script src="renderer.js"></script>
+      monaco.editor.defineTheme('viryx-dark', {
+        base: 'vs-dark',
+        inherit: false,
+        rules: [
+          { token: '',                     foreground: 'c8c8d4', background: '0a0a0a' },
+          { token: 'keyword',              foreground: 'b06cff', fontStyle: 'bold' },
+          { token: 'keyword.control',      foreground: 'b06cff', fontStyle: 'bold' },
+          { token: 'support',              foreground: 'a259e6' },
+          { token: 'support.function',     foreground: 'a259e6' },
+          { token: 'identifier',           foreground: 'd4b8ff' },
+          { token: 'string',               foreground: 'f0a040' },
+          { token: 'string.escape',        foreground: 'ffcc66' },
+          { token: 'number',               foreground: 'e06cff' },
+          { token: 'operator',             foreground: 'cc88ff' },
+          { token: 'delimiter',            foreground: '7070a0' },
+          { token: 'comment',              foreground: '4a4a6a', fontStyle: 'italic' },
+          { token: 'comment.line',         foreground: '4a4a6a', fontStyle: 'italic' },
+          { token: 'comment.block',        foreground: '4a4a6a', fontStyle: 'italic' },
+          { token: 'type',                 foreground: 'c77dff' },
+          { token: 'typeParameter',        foreground: 'c77dff' },
+          { token: 'constant',             foreground: 'e06cff' },
+          { token: 'constant.language',    foreground: 'e06cff' },
+          { token: 'entity.name.function', foreground: 'd4b8ff' },
+          { token: 'punctuation',          foreground: '7b6da0' },
+        ],
+        colors: {
+          'editor.background':                      '#0a0a0a',
+          'editor.foreground':                      '#c8c8d4',
+          'editorCursor.foreground':                '#b06cff',
+          'editorCursor.background':                '#0a0a0a',
+          'editor.lineHighlightBackground':         '#160d24',
+          'editor.lineHighlightBorder':             '#2a1445',
+          'editor.selectionBackground':             '#3a1f5e99',
+          'editor.inactiveSelectionBackground':     '#2a1445aa',
+          'editor.selectionHighlightBackground':    '#3a1f5e55',
+          'editor.wordHighlightBackground':         '#2a145566',
+          'editor.wordHighlightStrongBackground':   '#3a1f5e88',
+          'editor.findMatchBackground':             '#7b3fc455',
+          'editor.findMatchHighlightBackground':    '#7b3fc430',
+          'editor.findMatchBorder':                 '#b06cff',
+          'editorLineNumber.foreground':            '#3a2d5a',
+          'editorLineNumber.activeForeground':      '#8855cc',
+          'minimap.background':                     '#080808',
+          'minimap.selectionHighlight':             '#3a1f5e',
+          'minimapSlider.background':               '#2a144530',
+          'minimapSlider.hoverBackground':          '#3a1f5e50',
+          'minimapSlider.activeBackground':         '#7b3fc455',
+          'scrollbar.shadow':                       '#00000000',
+          'scrollbarSlider.background':             '#3a1f5e60',
+          'scrollbarSlider.hoverBackground':        '#7b3fc480',
+          'scrollbarSlider.activeBackground':       '#b06cffaa',
+          'editorIndentGuide.background':           '#1e1230',
+          'editorIndentGuide.activeBackground':     '#3a1f5e',
+          'editorBracketMatch.background':          '#3a1f5e55',
+          'editorBracketMatch.border':              '#b06cff',
+          'editorBracketHighlight.foreground1':     '#b06cff',
+          'editorBracketHighlight.foreground2':     '#e06cff',
+          'editorBracketHighlight.foreground3':     '#7b3fc4',
+          'editorBracketHighlight.unexpectedBracket.foreground': '#ff4444',
+          'editorRuler.foreground':                 '#1e1230',
+          'editorWhitespace.foreground':            '#2a1f3a',
+          'editorHoverWidget.background':           '#110a1e',
+          'editorHoverWidget.border':               '#3a1f5e',
+          'editorHoverWidget.foreground':           '#c8c8d4',
+          'editorSuggestWidget.background':         '#110a1e',
+          'editorSuggestWidget.border':             '#3a1f5e',
+          'editorSuggestWidget.foreground':         '#c8c8d4',
+          'editorSuggestWidget.selectedBackground': '#2a1445',
+          'editorSuggestWidget.highlightForeground':'#b06cff',
+          'peekViewEditor.background':              '#0d0718',
+          'peekViewEditor.matchHighlightBackground':'#3a1f5e44',
+          'peekViewResult.background':              '#0a0a0a',
+          'peekViewResult.selectionBackground':     '#2a1445',
+          'peekViewResult.matchHighlightBackground':'#3a1f5e44',
+          'peekViewTitle.background':               '#110a1e',
+          'peekViewTitleLabel.foreground':          '#c8c8d4',
+          'peekViewTitleDescription.foreground':    '#7b6da0',
+          'editorError.foreground':                 '#ff4444',
+          'editorWarning.foreground':               '#e0a020',
+          'editorInfo.foreground':                  '#7b3fc4',
+          'editorOverviewRuler.border':             '#0a0a0a',
+          'editorOverviewRuler.errorForeground':    '#ff4444',
+          'editorOverviewRuler.warningForeground':  '#e0a020',
+          'editorOverviewRuler.selectionHighlightForeground': '#b06cff',
+          'editorCodeLens.foreground':              '#4a3a6a',
+          'dropdown.background':                    '#110a1e',
+          'dropdown.border':                        '#3a1f5e',
+          'dropdown.foreground':                    '#c8c8d4',
+          'input.background':                       '#0d0718',
+          'input.border':                           '#3a1f5e',
+          'input.foreground':                       '#c8c8d4',
+          'input.placeholderForeground':            '#4a3a6a',
+          'inputOption.activeBorder':               '#b06cff',
+          'focusBorder':                            '#7b3fc4',
+        }
+      });
+
+      editor = monaco.editor.create(document.getElementById('editor-container'), {
+        model: null,
+        theme: 'viryx-dark',
+        fontFamily: '"JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace',
+        fontSize: 13,
+        fontLigatures: true,
+        lineHeight: 20,
+        letterSpacing: 0.3,
+        automaticLayout: true,
+        padding: { top: 10, bottom: 10 },
+        lineNumbers: 'on',
+        lineNumbersMinChars: 3,
+        glyphMargin: false,
+        folding: true,
+        foldingHighlight: false,
+        scrollbar: {
+          vertical: 'visible', horizontal: 'visible',
+          verticalScrollbarSize: 6, horizontalScrollbarSize: 6,
+          useShadows: false,
+        },
+        minimap: {
+          enabled: true, renderCharacters: false, scale: 1,
+          side: 'right', showSlider: 'mouseover', size: 'fit',
+        },
+        wordWrap: 'off',
+        smoothScrolling: true,
+        cursorBlinking: 'smooth',
+        cursorSmoothCaretAnimation: 'on',
+        cursorStyle: 'line',
+        cursorWidth: 2,
+        roundedSelection: true,
+        selectionHighlight: true,
+        occurrencesHighlight: 'singleFile',
+        renderLineHighlight: 'all',
+        renderWhitespace: 'none',
+        bracketPairColorization: { enabled: true },
+        guides: { bracketPairs: false, indentation: true, highlightActiveIndentation: true },
+        quickSuggestions: { other: true, comments: false, strings: false },
+        suggestOnTriggerCharacters: true,
+        acceptSuggestionOnEnter: 'on',
+        tabCompletion: 'on',
+        parameterHints: { enabled: true },
+        contextmenu: true,
+        mouseWheelZoom: false,
+        copyWithSyntaxHighlighting: false,
+        links: false,
+        colorDecorators: false,
+        overviewRulerLanes: 2,
+        hideCursorInOverviewRuler: true,
+        overviewRulerBorder: false,
+      });
+
+      // Mark dirty on edit
+      editor.onDidChangeModelContent(function () {
+        var t = getTab(activeId);
+        if (t && !t.dirty) { t.dirty = true; renderTabs(); }
+      });
+
+      // Seed two default tabs
+      var t1 = createTab('untitled1.lua', '');
+      var t2 = createTab('untitled2.lua', '');
+      activateTab(t1.id);
+
+      document.getElementById('btn-new-tab').addEventListener('click', function () {
+        var t = createTab('untitled' + (tabCounter + 1) + '.lua', '');
+        activateTab(t.id);
+      });
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function getTab(id) { return tabs.find(function (t) { return t.id === id; }); }
+
+    function createTab(name, content) {
+      tabCounter++;
+      var model = monaco.editor.createModel(content || '', 'lua');
+      var t = { id: tabCounter, name: name, model: model, viewState: null, dirty: false };
+      tabs.push(t);
+      renderTabs();
+      return t;
+    }
+
+    function activateTab(id) {
+      if (activeId !== null && editor) {
+        var prev = getTab(activeId);
+        if (prev) prev.viewState = editor.saveViewState();
+      }
+      activeId = id;
+      var t = getTab(id);
+      if (!t) return;
+      editor.setModel(t.model);
+      if (t.viewState) editor.restoreViewState(t.viewState);
+      editor.focus();
+      renderTabs();
+    }
+
+    function closeTab(id) {
+      var idx = tabs.findIndex(function (t) { return t.id === id; });
+      if (idx === -1) return;
+      tabs[idx].model.dispose();
+      tabs.splice(idx, 1);
+
+      if (tabs.length === 0) {
+        var t = createTab('untitled' + (tabCounter + 1) + '.lua', '');
+        activateTab(t.id);
+        return;
+      }
+      if (activeId === id) {
+        activateTab(tabs[Math.min(idx, tabs.length - 1)].id);
+      } else {
+        renderTabs();
+      }
+    }
+
+    function renderTabs() {
+      var bar    = document.getElementById('tab-bar');
+      var btnNew = document.getElementById('btn-new-tab');
+      bar.querySelectorAll('.tab').forEach(function (el) { el.remove(); });
+
+      tabs.forEach(function (t) {
+        var el = document.createElement('div');
+        el.className = 'tab' +
+          (t.id === activeId ? ' active' : '') +
+          (t.dirty ? ' unsaved' : '');
+
+        var dot = document.createElement('span');
+        dot.className = 'dot';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'tab-name';
+        nameSpan.textContent = t.name;
+
+        var closeBtn = document.createElement('span');
+        closeBtn.className = 'tab-close';
+        closeBtn.textContent = '\u00d7';
+        closeBtn.title = 'Close tab';
+        closeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          closeTab(t.id);
+        });
+
+        el.appendChild(dot);
+        el.appendChild(nameSpan);
+        el.appendChild(closeBtn);
+
+        el.addEventListener('click', function () { activateTab(t.id); });
+        el.addEventListener('dblclick', function (e) {
+          e.stopPropagation();
+          startRename(t.id, nameSpan);
+        });
+
+        bar.insertBefore(el, btnNew);
+      });
+
+      var activeEl = bar.querySelector('.tab.active');
+      if (activeEl) activeEl.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+
+    function startRename(id, nameSpan) {
+      var t = getTab(id);
+      if (!t) return;
+      var input = document.createElement('input');
+      input.value = t.name;
+      input.style.cssText =
+        'background:#0d0718;color:#d4b8ff;border:1px solid #7b3fc4;border-radius:3px;' +
+        'font:inherit;font-size:12px;padding:0 4px;outline:none;' +
+        'width:' + Math.max(60, t.name.length * 8) + 'px;height:18px;';
+      nameSpan.replaceWith(input);
+      input.focus();
+      input.select();
+      function commit() {
+        var val = input.value.trim();
+        if (val) t.name = val;
+        renderTabs();
+        editor.focus();
+      }
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') { renderTabs(); editor.focus(); }
+      });
+    }
+
+    // ── Public API (callable from C# host via WebView/CEF ExecuteScript) ─────
+    window.viryx = {
+      getContent:  function ()       { var t = getTab(activeId); return t ? t.model.getValue() : ''; },
+      setContent:  function (str)    { var t = getTab(activeId); if (t) { t.model.setValue(str); t.dirty = false; renderTabs(); } },
+      newTab:      function (n, src) { var t = createTab(n || ('untitled' + (tabCounter+1) + '.lua'), src || ''); activateTab(t.id); },
+      openFile:    function (n, src) {
+        var ex = tabs.find(function (t) { return t.name === n; });
+        if (ex) { ex.model.setValue(src || ''); ex.dirty = false; activateTab(ex.id); }
+        else    { var t = createTab(n, src || ''); activateTab(t.id); }
+      },
+      closeActive: function ()       { if (activeId !== null) closeTab(activeId); },
+      getTabNames: function ()       { return tabs.map(function (t) { return t.name; }); },
+    };
+
+  })();
+  </script>
 </body>
 </html>
