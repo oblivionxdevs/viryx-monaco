@@ -14,67 +14,141 @@ html, body {
     font-family: "Segoe UI", sans-serif;
 }
 
+/* ================= APP ================= */
+
 #app {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
+    animation: appFade 0.35s ease;
+}
+
+@keyframes appFade {
+    from { opacity: 0; transform: scale(0.99); }
+    to   { opacity: 1; transform: scale(1); }
 }
 
 /* ================= TABS ================= */
 
 #tabs {
-    height: 40px;
+    height: 42px;
     background: #171b24;
     border-bottom: 1px solid #252a36;
     display: flex;
     align-items: center;
     overflow-x: auto;
-    padding-left: 6px;
+    padding: 6px 8px;
+    gap: 6px;
 }
+
+/* smooth scrollbar */
+#tabs::-webkit-scrollbar {
+    height: 4px;
+}
+#tabs::-webkit-scrollbar-thumb {
+    background: #2a3350;
+    border-radius: 10px;
+}
+
+/* ================= TAB ================= */
 
 .tab {
     height: 30px;
-    margin-right: 6px;
-    padding: 0 12px;
+    padding: 0 14px;
     display: flex;
     align-items: center;
     cursor: pointer;
     color: #aab1c3;
     user-select: none;
+
     background: #1b2030;
-    border-radius: 6px;
+    border-radius: 8px;
+
     font-size: 12px;
+    letter-spacing: 0.2px;
+
+    transition: all 0.18s ease;
+    position: relative;
+
+    opacity: 0;
+    transform: translateY(4px);
+    animation: tabIn 0.2s ease forwards;
 }
 
-.tab.active {
-    background: #2a3350;
-    color: white;
+@keyframes tabIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
+/* hover effect */
 .tab:hover {
     background: #232a3d;
+    transform: translateY(-1px);
+    color: #ffffff;
 }
+
+/* active tab */
+.tab.active {
+    background: #2a3350;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.25);
+}
+
+/* animated underline for active tab */
+.tab.active::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 3px;
+    height: 2px;
+    background: #7aa2f7;
+    border-radius: 2px;
+    animation: underline 0.25s ease;
+}
+
+@keyframes underline {
+    from { transform: scaleX(0); opacity: 0; }
+    to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ================= ADD TAB BUTTON ================= */
 
 #addTab {
     width: 34px;
     height: 30px;
-    border: none;
+
+    border: 1px solid #252a36;
     background: #1b2030;
-    color: white;
+    color: #ffffff;
+
     cursor: pointer;
-    border-radius: 6px;
-    margin-left: 6px;
+    border-radius: 8px;
+
+    margin-left: 4px;
+
+    transition: all 0.18s ease;
 }
 
 #addTab:hover {
     background: #2a3350;
+    transform: translateY(-1px) rotate(90deg);
+    border-color: #3a4570;
 }
 
 /* ================= EDITOR ================= */
 
 #editor {
     flex: 1;
+    animation: editorFade 0.35s ease;
+}
+
+@keyframes editorFade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 </style>
 </head>
@@ -96,7 +170,7 @@ require.config({ paths: { vs: "./vs" } });
 
 require(["vs/editor/editor.main"], function () {
 
-    // ================= THEME =================
+    // ================= THEME (UNCHANGED COLORS) =================
     monaco.editor.defineTheme("viryx", {
         base: "vs-dark",
         inherit: true,
@@ -113,7 +187,6 @@ require(["vs/editor/editor.main"], function () {
         }
     });
 
-    // ================= EDITOR =================
     const editor = monaco.editor.create(
         document.getElementById("editor"),
         {
@@ -129,33 +202,6 @@ require(["vs/editor/editor.main"], function () {
         }
     );
 
-    // ================= PERSISTENCE =================
-
-    const STORAGE_KEY = "monaco_tabs";
-
-    function saveState() {
-        const state = {
-            currentTab,
-            tabIndex,
-            tabs: {}
-        };
-        for (const name of Object.keys(models)) {
-            state.tabs[name] = models[name].getValue();
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function loadState() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : null;
-        } catch {
-            return null;
-        }
-    }
-
-    // ================= TAB SYSTEM =================
-
     const tabsContainer = document.getElementById("tabs");
     const addTabBtn = document.getElementById("addTab");
 
@@ -163,7 +209,6 @@ require(["vs/editor/editor.main"], function () {
     let currentTab = null;
     let tabIndex = 1;
 
-    // Save whenever the content of the active model changes
     let changeDisposable = null;
 
     function attachChangeListener() {
@@ -172,40 +217,36 @@ require(["vs/editor/editor.main"], function () {
     }
 
     function createTab(name, initialContent = "") {
-        if (models[name]) {
-            switchTab(name);
-            return;
-        }
+        if (models[name]) return switchTab(name);
+
         const model = monaco.editor.createModel(initialContent, "lua");
         models[name] = model;
+
         switchTab(name);
         renderTabs();
-        saveState();
     }
 
     function switchTab(name) {
         if (!models[name]) return;
+
         currentTab = name;
         editor.setModel(models[name]);
+
         attachChangeListener();
         renderTabs();
-        saveState();
     }
 
     function closeTab(name) {
         if (!models[name]) return;
+
         models[name].dispose();
         delete models[name];
 
         const keys = Object.keys(models);
-        if (keys.length > 0) {
-            switchTab(keys[0]);
-        } else {
-            createTab("main.lua");
-        }
+        if (keys.length) switchTab(keys[0]);
+        else createTab("main.lua");
 
         renderTabs();
-        saveState();
     }
 
     function renderTabs() {
@@ -213,13 +254,12 @@ require(["vs/editor/editor.main"], function () {
 
         Object.keys(models).forEach(name => {
             const tab = document.createElement("div");
+
             tab.className = "tab" + (currentTab === name ? " active" : "");
             tab.textContent = name;
 
-            // click = switch
             tab.onclick = () => switchTab(name);
 
-            // right click = close
             tab.oncontextmenu = (e) => {
                 e.preventDefault();
                 closeTab(name);
@@ -229,51 +269,21 @@ require(["vs/editor/editor.main"], function () {
         });
     }
 
-    // ================= EXPOSE TO C# =================
+    // ================= EXPOSE =================
 
-    window.GetText = function () {
-        return editor.getValue();
-    };
-
-    window.SetText = function (text) {
-        editor.setValue(text);
-    };
+    window.GetText = () => editor.getValue();
+    window.SetText = (t) => editor.setValue(t);
 
     window.CreateTab = createTab;
     window.SwitchTab = switchTab;
     window.CloseTab = closeTab;
 
-    window.SwitchWordWrap = (v) => editor.updateOptions({ wordWrap: v ? "on" : "off" });
-    window.SwitchMinimap = (v) => editor.updateOptions({ minimap: { enabled: v } });
-    window.SwitchLineNumbers = (v) => editor.updateOptions({ lineNumbers: v ? "on" : "off" });
-    window.SwitchFontSize = (v) => editor.updateOptions({ fontSize: v });
+    window.SwitchWordWrap = v => editor.updateOptions({ wordWrap: v ? "on" : "off" });
+    window.SwitchMinimap = v => editor.updateOptions({ minimap: { enabled: v } });
 
     // ================= INIT =================
 
-    const saved = loadState();
-
-    if (saved && saved.tabs && Object.keys(saved.tabs).length > 0) {
-        // Restore tab index counter so new tabs don't collide with saved names
-        if (saved.tabIndex) tabIndex = saved.tabIndex;
-
-        // Re-create all saved tabs with their content
-        for (const [name, content] of Object.entries(saved.tabs)) {
-            const model = monaco.editor.createModel(content, "lua");
-            models[name] = model;
-        }
-
-        // Restore the previously active tab, fall back to first
-        const activeTab = saved.currentTab && models[saved.currentTab]
-            ? saved.currentTab
-            : Object.keys(models)[0];
-
-        currentTab = activeTab;
-        editor.setModel(models[activeTab]);
-        attachChangeListener();
-        renderTabs();
-    } else {
-        createTab("main.lua");
-    }
+    createTab("main.lua");
 
     addTabBtn.onclick = () => {
         createTab("tab_" + tabIndex++ + ".lua");
