@@ -14,7 +14,6 @@ html, body {
     font-family: "Segoe UI", sans-serif;
 }
 
-/* APP LAYOUT */
 #app {
     width: 100%;
     height: 100%;
@@ -49,42 +48,50 @@ html, body {
 
     font-size: 12px;
     user-select: none;
-    cursor: pointer;
+    cursor: grab;
 
-    transition: all 0.18s ease;
-    transform: translateY(0);
-    animation: tabIn 0.18s ease;
+    transition: all 0.15s ease;
+    animation: tabIn 0.15s ease;
+}
+
+.tab:active {
+    cursor: grabbing;
 }
 
 /* hover */
 .tab:hover {
     background: #232a3d;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
 
-/* active tab */
+/* active */
 .tab.active {
     background: #2a3350;
     color: white;
     box-shadow: inset 0 0 0 1px #3a4668;
 }
 
-/* close button */
+/* lua icon */
+.tab .icon {
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+/* close */
 .tab .close {
+    margin-left: 6px;
     font-size: 12px;
-    padding: 0 4px;
-    border-radius: 4px;
     opacity: 0.7;
     transition: 0.15s;
 }
 
 .tab .close:hover {
-    background: rgba(255,255,255,0.1);
     opacity: 1;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
 }
 
-/* add tab button */
+/* add tab */
 #addTab {
     width: 32px;
     height: 30px;
@@ -93,30 +100,26 @@ html, body {
     color: white;
     cursor: pointer;
     border-radius: 8px;
-    transition: 0.2s;
 }
 
 #addTab:hover {
     background: #2a3350;
-    transform: scale(1.05);
 }
 
-/* ================= EDITOR ================= */
+/* drag effect */
+.tab.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
 
+/* editor */
 #editor {
     flex: 1;
 }
 
-/* TAB ANIMATION */
 @keyframes tabIn {
-    from {
-        opacity: 0;
-        transform: translateY(4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 </head>
@@ -155,33 +158,39 @@ require(["vs/editor/editor.main"], function () {
     });
 
     /* ================= EDITOR ================= */
-    const editor = monaco.editor.create(
-        document.getElementById("editor"),
-        {
-            language: "lua",
-            theme: "viryx",
-            fontSize: 15,
-            fontFamily: "'JetBrains Mono','Cascadia Code',Consolas",
-            minimap: { enabled: true },
-            smoothScrolling: true,
-            scrollBeyondLastLine: false,
-            cursorSmoothCaretAnimation: true,
-            bracketPairColorization: { enabled: true }
-        }
-    );
+    const editor = monaco.editor.create(document.getElementById("editor"), {
+        language: "lua",
+        theme: "viryx",
+        fontSize: 15,
+        fontFamily: "'JetBrains Mono','Cascadia Code',Consolas",
+        minimap: { enabled: true },
+        smoothScrolling: true,
+        scrollBeyondLastLine: false,
+        bracketPairColorization: { enabled: true }
+    });
 
-    /* ================= STORAGE ================= */
-    const STORAGE_KEY = "viryx_tabs_v2";
+    /* ================= STATE ================= */
+    const STORAGE_KEY = "viryx_tabs_drag_v1";
+
+    let models = {};
+    let order = [];
+    let currentTab = null;
+    let tabIndex = 1;
+    let changeDisposable = null;
+
+    const tabsContainer = document.getElementById("tabs");
+    const addTabBtn = document.getElementById("addTab");
 
     function save() {
         const data = {
             currentTab,
+            order,
             tabIndex,
             tabs: {}
         };
 
-        for (const name in models) {
-            data.tabs[name] = models[name].getValue();
+        for (const k of Object.keys(models)) {
+            data.tabs[k] = models[k].getValue();
         }
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -194,15 +203,6 @@ require(["vs/editor/editor.main"], function () {
             return null;
         }
     }
-
-    /* ================= STATE ================= */
-    let models = {};
-    let currentTab = null;
-    let tabIndex = 1;
-    let changeDisposable = null;
-
-    const tabsContainer = document.getElementById("tabs");
-    const addTabBtn = document.getElementById("addTab");
 
     function bindChange() {
         if (changeDisposable) changeDisposable.dispose();
@@ -217,8 +217,10 @@ require(["vs/editor/editor.main"], function () {
         const model = monaco.editor.createModel(content, "lua");
         models[name] = model;
 
+        order.push(name);
+
         switchTab(name);
-        renderTabs();
+        render();
         save();
     }
 
@@ -229,7 +231,7 @@ require(["vs/editor/editor.main"], function () {
         editor.setModel(models[name]);
 
         bindChange();
-        renderTabs();
+        render();
         save();
     }
 
@@ -239,43 +241,88 @@ require(["vs/editor/editor.main"], function () {
         models[name].dispose();
         delete models[name];
 
-        const keys = Object.keys(models);
-        if (keys.length) {
-            switchTab(keys[0]);
+        order = order.filter(x => x !== name);
+
+        if (order.length) {
+            switchTab(order[0]);
         } else {
             createTab("main.lua");
         }
 
-        renderTabs();
+        render();
         save();
     }
 
     function renameTab(oldName) {
         const newName = prompt("Rename tab:", oldName);
         if (!newName || newName === oldName) return;
-        if (models[newName]) return alert("Tab already exists!");
+        if (models[newName]) return alert("Tab exists");
 
         models[newName] = models[oldName];
         delete models[oldName];
 
+        order = order.map(x => x === oldName ? newName : x);
+
         if (currentTab === oldName) currentTab = newName;
 
         switchTab(newName);
-        renderTabs();
+        render();
         save();
+    }
+
+    /* ================= DRAG & DROP ================= */
+
+    let dragged = null;
+
+    function setupDrag(tab, name) {
+        tab.draggable = true;
+
+        tab.ondragstart = () => {
+            dragged = name;
+            tab.classList.add("dragging");
+        };
+
+        tab.ondragend = () => {
+            dragged = null;
+            tab.classList.remove("dragging");
+        };
+
+        tab.ondragover = (e) => {
+            e.preventDefault();
+        };
+
+        tab.ondrop = (e) => {
+            e.preventDefault();
+            if (!dragged || dragged === name) return;
+
+            const from = order.indexOf(dragged);
+            const to = order.indexOf(name);
+
+            order.splice(from, 1);
+            order.splice(to, 0, dragged);
+
+            render();
+            save();
+        };
     }
 
     /* ================= RENDER ================= */
 
-    function renderTabs() {
+    function render() {
         document.querySelectorAll(".tab").forEach(t => t.remove());
 
-        Object.keys(models).forEach(name => {
+        order.forEach(name => {
             const tab = document.createElement("div");
             tab.className = "tab" + (currentTab === name ? " active" : "");
 
+            /* icon (lua executor vibe) */
+            const icon = document.createElement("span");
+            icon.className = "icon";
+            icon.textContent = "🟣";
+
             const label = document.createElement("span");
             label.textContent = name;
+
             label.ondblclick = () => renameTab(name);
 
             const close = document.createElement("span");
@@ -286,10 +333,13 @@ require(["vs/editor/editor.main"], function () {
                 closeTab(name);
             };
 
+            tab.appendChild(icon);
             tab.appendChild(label);
             tab.appendChild(close);
 
             tab.onclick = () => switchTab(name);
+
+            setupDrag(tab, name);
 
             tabsContainer.insertBefore(tab, addTabBtn);
         });
@@ -297,36 +347,37 @@ require(["vs/editor/editor.main"], function () {
 
     /* ================= EXPOSE ================= */
 
-    window.GetText = () => editor.getValue();
-    window.SetText = (t) => editor.setValue(t);
-
     window.CreateTab = createTab;
     window.SwitchTab = switchTab;
     window.CloseTab = closeTab;
     window.RenameTab = renameTab;
 
+    window.GetText = () => editor.getValue();
+    window.SetText = (t) => editor.setValue(t);
+
     window.SwitchWordWrap = v => editor.updateOptions({ wordWrap: v ? "on" : "off" });
     window.SwitchMinimap = v => editor.updateOptions({ minimap: { enabled: v } });
-    window.SwitchLineNumbers = v => editor.updateOptions({ lineNumbers: v ? "on" : "off" });
-    window.SwitchFontSize = v => editor.updateOptions({ fontSize: v });
 
-    /* ================= RESTORE ================= */
+    /* ================= INIT ================= */
 
     const saved = load();
 
-    if (saved && saved.tabs && Object.keys(saved.tabs).length) {
-        if (saved.tabIndex) tabIndex = saved.tabIndex;
+    if (saved && saved.tabs) {
+        models = {};
+        order = saved.order || Object.keys(saved.tabs);
 
         for (const [name, content] of Object.entries(saved.tabs)) {
             models[name] = monaco.editor.createModel(content, "lua");
         }
 
-        const first = saved.currentTab && models[saved.currentTab]
+        currentTab = saved.currentTab && models[saved.currentTab]
             ? saved.currentTab
-            : Object.keys(models)[0];
+            : order[0];
 
-        switchTab(first);
-        renderTabs();
+        tabIndex = saved.tabIndex || 1;
+
+        switchTab(currentTab);
+        render();
     } else {
         createTab("main.lua");
     }
