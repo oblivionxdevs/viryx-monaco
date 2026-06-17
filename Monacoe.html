@@ -316,9 +316,10 @@ require(["vs/editor/editor.main"], function () {
             tab.className = "tab" + (currentTab === name ? " active" : "");
 
             /* icon (lua executor vibe) */
-            const icon = document.createElement("span");
-            icon.className = "icon";
-            icon.textContent = "🟣";
+            const icon = document.createElement("img");
+           icon.className = "icon";
+           icon.src = "https://www.lua.org/images/lua-logo.gif";
+           icon.alt = "Lua";
 
             const label = document.createElement("span");
             label.textContent = name;
