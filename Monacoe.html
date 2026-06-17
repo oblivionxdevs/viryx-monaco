@@ -129,6 +129,31 @@ require(["vs/editor/editor.main"], function () {
         }
     );
 
+    // ================= PERSISTENCE =================
+
+    const STORAGE_KEY = "monaco_tabs";
+
+    function saveState() {
+        const state = {
+            currentTab,
+            tabIndex,
+            tabs: {}
+        };
+        for (const name of Object.keys(models)) {
+            state.tabs[name] = models[name].getValue();
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadState() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    }
+
     // ================= TAB SYSTEM =================
 
     const tabsContainer = document.getElementById("tabs");
@@ -138,31 +163,41 @@ require(["vs/editor/editor.main"], function () {
     let currentTab = null;
     let tabIndex = 1;
 
-    function createTab(name) {
-        const model = monaco.editor.createModel("", "lua");
+    // Save whenever the content of the active model changes
+    let changeDisposable = null;
 
+    function attachChangeListener() {
+        if (changeDisposable) changeDisposable.dispose();
+        changeDisposable = editor.onDidChangeModelContent(() => saveState());
+    }
+
+    function createTab(name, initialContent = "") {
+        if (models[name]) {
+            switchTab(name);
+            return;
+        }
+        const model = monaco.editor.createModel(initialContent, "lua");
         models[name] = model;
-
         switchTab(name);
         renderTabs();
+        saveState();
     }
 
     function switchTab(name) {
         if (!models[name]) return;
-
         currentTab = name;
         editor.setModel(models[name]);
+        attachChangeListener();
         renderTabs();
+        saveState();
     }
 
     function closeTab(name) {
         if (!models[name]) return;
-
         models[name].dispose();
         delete models[name];
 
         const keys = Object.keys(models);
-
         if (keys.length > 0) {
             switchTab(keys[0]);
         } else {
@@ -170,13 +205,13 @@ require(["vs/editor/editor.main"], function () {
         }
 
         renderTabs();
+        saveState();
     }
 
     function renderTabs() {
         document.querySelectorAll(".tab").forEach(t => t.remove());
 
         Object.keys(models).forEach(name => {
-
             const tab = document.createElement("div");
             tab.className = "tab" + (currentTab === name ? " active" : "");
             tab.textContent = name;
@@ -215,7 +250,30 @@ require(["vs/editor/editor.main"], function () {
 
     // ================= INIT =================
 
-    createTab("main.lua");
+    const saved = loadState();
+
+    if (saved && saved.tabs && Object.keys(saved.tabs).length > 0) {
+        // Restore tab index counter so new tabs don't collide with saved names
+        if (saved.tabIndex) tabIndex = saved.tabIndex;
+
+        // Re-create all saved tabs with their content
+        for (const [name, content] of Object.entries(saved.tabs)) {
+            const model = monaco.editor.createModel(content, "lua");
+            models[name] = model;
+        }
+
+        // Restore the previously active tab, fall back to first
+        const activeTab = saved.currentTab && models[saved.currentTab]
+            ? saved.currentTab
+            : Object.keys(models)[0];
+
+        currentTab = activeTab;
+        editor.setModel(models[activeTab]);
+        attachChangeListener();
+        renderTabs();
+    } else {
+        createTab("main.lua");
+    }
 
     addTabBtn.onclick = () => {
         createTab("tab_" + tabIndex++ + ".lua");
