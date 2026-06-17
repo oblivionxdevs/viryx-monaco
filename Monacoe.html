@@ -21,6 +21,8 @@ html, body {
     flex-direction: column;
 }
 
+/* ================= TABS ================= */
+
 #tabs {
     height: 40px;
     background: #171b24;
@@ -28,31 +30,48 @@ html, body {
     display: flex;
     align-items: center;
     overflow-x: auto;
+    padding-left: 6px;
 }
 
 .tab {
-    height: 100%;
-    padding: 0 16px;
+    height: 30px;
+    margin-right: 6px;
+    padding: 0 12px;
     display: flex;
     align-items: center;
     cursor: pointer;
     color: #aab1c3;
     user-select: none;
+    background: #1b2030;
+    border-radius: 6px;
+    font-size: 12px;
 }
 
 .tab.active {
-    background: #212735;
+    background: #2a3350;
     color: white;
 }
 
+.tab:hover {
+    background: #232a3d;
+}
+
 #addTab {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 30px;
     border: none;
-    background: transparent;
+    background: #1b2030;
     color: white;
     cursor: pointer;
+    border-radius: 6px;
+    margin-left: 6px;
 }
+
+#addTab:hover {
+    background: #2a3350;
+}
+
+/* ================= EDITOR ================= */
 
 #editor {
     flex: 1;
@@ -73,14 +92,11 @@ html, body {
 <script src="vs/loader.js"></script>
 
 <script>
-require.config({
-    paths: {
-        vs: "./vs"
-    }
-});
+require.config({ paths: { vs: "./vs" } });
 
 require(["vs/editor/editor.main"], function () {
 
+    // ================= THEME =================
     monaco.editor.defineTheme("viryx", {
         base: "vs-dark",
         inherit: true,
@@ -92,207 +108,120 @@ require(["vs/editor/editor.main"], function () {
         colors: {
             "editor.background": "#0F1117",
             "editorLineNumber.foreground": "#596275",
-            "editorLineNumber.activeForeground": "#D7DAE0",
             "editorCursor.foreground": "#7AA2F7",
             "editor.lineHighlightBackground": "#161B22"
         }
     });
 
+    // ================= EDITOR =================
     const editor = monaco.editor.create(
         document.getElementById("editor"),
         {
             language: "lua",
             theme: "viryx",
-
             fontSize: 15,
-
-            fontFamily:
-                "'JetBrains Mono', 'Cascadia Code', Consolas",
-
-            minimap: {
-                enabled: true
-            },
-
+            fontFamily: "'JetBrains Mono','Cascadia Code',Consolas",
+            minimap: { enabled: true },
             smoothScrolling: true,
-
             scrollBeyondLastLine: false,
-
             cursorSmoothCaretAnimation: true,
-
-            roundedSelection: true,
-
-            renderLineHighlight: "all",
-
-            wordWrap: "off",
-
-            bracketPairColorization: {
-                enabled: true
-            }
+            bracketPairColorization: { enabled: true }
         }
     );
 
-    const models = {};
+    // ================= TAB SYSTEM =================
+
+    const tabsContainer = document.getElementById("tabs");
+    const addTabBtn = document.getElementById("addTab");
+
+    let models = {};
     let currentTab = null;
-
-    const tabsContainer =
-        document.getElementById("tabs");
-
-    function renderTabs() {
-
-        document
-            .querySelectorAll(".tab")
-            .forEach(x => x.remove());
-
-        Object.keys(models).forEach(name => {
-
-            const tab =
-                document.createElement("div");
-
-            tab.className =
-                currentTab === name
-                ? "tab active"
-                : "tab";
-
-            tab.textContent = name;
-
-            tab.onclick = () => {
-                switchTab(name);
-            };
-
-            tabsContainer.insertBefore(
-                tab,
-                document.getElementById("addTab")
-            );
-        });
-    }
+    let tabIndex = 1;
 
     function createTab(name) {
+        const model = monaco.editor.createModel("", "lua");
 
-        if(models[name])
-            return;
+        models[name] = model;
 
-        models[name] =
-            monaco.editor.createModel(
-                "",
-                "lua"
-            );
-
-        if(currentTab === null)
-            switchTab(name);
-
+        switchTab(name);
         renderTabs();
     }
 
     function switchTab(name) {
-
-        if(!models[name])
-            return;
+        if (!models[name]) return;
 
         currentTab = name;
-
         editor.setModel(models[name]);
-
         renderTabs();
     }
 
     function closeTab(name) {
-
-        if(!models[name])
-            return;
+        if (!models[name]) return;
 
         models[name].dispose();
-
         delete models[name];
 
-        const remaining =
-            Object.keys(models);
+        const keys = Object.keys(models);
 
-        if(currentTab === name)
-        {
-            if(remaining.length > 0)
-                switchTab(remaining[0]);
-            else
-                currentTab = null;
+        if (keys.length > 0) {
+            switchTab(keys[0]);
+        } else {
+            createTab("main.lua");
         }
 
         renderTabs();
     }
+
+    function renderTabs() {
+        document.querySelectorAll(".tab").forEach(t => t.remove());
+
+        Object.keys(models).forEach(name => {
+
+            const tab = document.createElement("div");
+            tab.className = "tab" + (currentTab === name ? " active" : "");
+            tab.textContent = name;
+
+            // click = switch
+            tab.onclick = () => switchTab(name);
+
+            // right click = close
+            tab.oncontextmenu = (e) => {
+                e.preventDefault();
+                closeTab(name);
+            };
+
+            tabsContainer.insertBefore(tab, addTabBtn);
+        });
+    }
+
+    // ================= EXPOSE TO C# =================
+
+    window.GetText = function () {
+        return editor.getValue();
+    };
+
+    window.SetText = function (text) {
+        editor.setValue(text);
+    };
 
     window.CreateTab = createTab;
     window.SwitchTab = switchTab;
     window.CloseTab = closeTab;
 
-    window.GetText = function() {
+    window.SwitchWordWrap = (v) => editor.updateOptions({ wordWrap: v ? "on" : "off" });
+    window.SwitchMinimap = (v) => editor.updateOptions({ minimap: { enabled: v } });
+    window.SwitchLineNumbers = (v) => editor.updateOptions({ lineNumbers: v ? "on" : "off" });
+    window.SwitchFontSize = (v) => editor.updateOptions({ fontSize: v });
 
-        const model =
-            editor.getModel();
-
-        return model
-            ? model.getValue()
-            : "";
-    };
-
-    window.SetText = function(text) {
-
-        const model =
-            editor.getModel();
-
-        if(model)
-            model.setValue(text);
-    };
-
-    window.SwitchWordWrap = function(flag) {
-
-        editor.updateOptions({
-            wordWrap:
-                flag ? "on" : "off"
-        });
-    };
-
-    window.SwitchMinimap = function(flag) {
-
-        editor.updateOptions({
-            minimap: {
-                enabled: flag
-            }
-        });
-    };
-
-    window.SwitchLineNumbers = function(flag) {
-
-        editor.updateOptions({
-            lineNumbers:
-                flag ? "on" : "off"
-        });
-    };
-
-    window.SwitchFontSize = function(size) {
-
-        editor.updateOptions({
-            fontSize: size
-        });
-    };
-
-    window.SwitchFontLigatures = function(flag) {
-
-        editor.updateOptions({
-            fontLigatures: flag
-        });
-    };
-
-    window.SwitchReadonly = function(flag) {
-
-        editor.updateOptions({
-            readOnly: flag
-        });
-    };
+    // ================= INIT =================
 
     createTab("main.lua");
 
-    window.addEventListener(
-        "resize",
-        () => editor.layout()
-    );
+    addTabBtn.onclick = () => {
+        createTab("tab_" + tabIndex++ + ".lua");
+    };
+
+    window.addEventListener("resize", () => editor.layout());
 });
 </script>
 
