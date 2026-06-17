@@ -14,124 +14,109 @@ html, body {
     font-family: "Segoe UI", sans-serif;
 }
 
+/* APP LAYOUT */
 #app {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    animation: appFade 0.35s ease;
-}
-
-@keyframes appFade {
-    from { opacity: 0; transform: scale(0.99); }
-    to   { opacity: 1; transform: scale(1); }
 }
 
 /* ================= TABS ================= */
 
 #tabs {
     height: 42px;
-    background: #171b24;
+    background: linear-gradient(180deg, #171b24, #141824);
     border-bottom: 1px solid #252a36;
     display: flex;
     align-items: center;
     overflow-x: auto;
-    padding: 6px 8px;
+    padding: 6px;
     gap: 6px;
 }
 
+/* TAB */
 .tab {
-    height: 30px;
-    padding: 0 12px;
     display: flex;
     align-items: center;
-    cursor: pointer;
-    color: #aab1c3;
-    user-select: none;
+    gap: 8px;
 
-    background: #1b2030;
+    padding: 6px 10px;
     border-radius: 8px;
 
+    background: #1b2030;
+    color: #aab1c3;
+
     font-size: 12px;
+    user-select: none;
+    cursor: pointer;
 
     transition: all 0.18s ease;
-
-    opacity: 0;
-    transform: translateY(4px);
-    animation: tabIn 0.2s ease forwards;
+    transform: translateY(0);
+    animation: tabIn 0.18s ease;
 }
 
-@keyframes tabIn {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
+/* hover */
 .tab:hover {
     background: #232a3d;
     transform: translateY(-1px);
-    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
 
+/* active tab */
 .tab.active {
     background: #2a3350;
-    color: #fff;
-    box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.25);
+    color: white;
+    box-shadow: inset 0 0 0 1px #3a4668;
 }
 
-.tab.active::after {
-    content: "";
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 3px;
-    height: 2px;
-    background: #7aa2f7;
-    border-radius: 2px;
-}
-
-/* TAB TEXT WRAPPER */
-.tab span {
-    display: flex;
-    align-items: center;
-}
-
-/* CLOSE BUTTON */
-.close {
-    margin-left: 8px;
-    font-size: 14px;
-    opacity: 0.6;
+/* close button */
+.tab .close {
+    font-size: 12px;
+    padding: 0 4px;
+    border-radius: 4px;
+    opacity: 0.7;
     transition: 0.15s;
-    cursor: pointer;
 }
 
-.close:hover {
+.tab .close:hover {
+    background: rgba(255,255,255,0.1);
     opacity: 1;
-    color: #ff5c5c;
 }
 
-/* ADD TAB BUTTON */
+/* add tab button */
 #addTab {
-    width: 34px;
+    width: 32px;
     height: 30px;
-    border: 1px solid #252a36;
+    border: none;
     background: #1b2030;
     color: white;
     cursor: pointer;
     border-radius: 8px;
-    transition: 0.18s ease;
+    transition: 0.2s;
 }
 
 #addTab:hover {
     background: #2a3350;
-    transform: rotate(90deg);
+    transform: scale(1.05);
 }
 
 /* ================= EDITOR ================= */
 
 #editor {
     flex: 1;
+}
+
+/* TAB ANIMATION */
+@keyframes tabIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>
 </head>
@@ -142,7 +127,6 @@ html, body {
     <div id="tabs">
         <button id="addTab">+</button>
     </div>
-
     <div id="editor"></div>
 </div>
 
@@ -153,6 +137,7 @@ require.config({ paths: { vs: "./vs" } });
 
 require(["vs/editor/editor.main"], function () {
 
+    /* ================= THEME ================= */
     monaco.editor.defineTheme("viryx", {
         base: "vs-dark",
         inherit: true,
@@ -169,6 +154,7 @@ require(["vs/editor/editor.main"], function () {
         }
     });
 
+    /* ================= EDITOR ================= */
     const editor = monaco.editor.create(
         document.getElementById("editor"),
         {
@@ -184,19 +170,46 @@ require(["vs/editor/editor.main"], function () {
         }
     );
 
-    const tabsContainer = document.getElementById("tabs");
-    const addTabBtn = document.getElementById("addTab");
+    /* ================= STORAGE ================= */
+    const STORAGE_KEY = "viryx_tabs_v2";
 
+    function save() {
+        const data = {
+            currentTab,
+            tabIndex,
+            tabs: {}
+        };
+
+        for (const name in models) {
+            data.tabs[name] = models[name].getValue();
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function load() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY));
+        } catch {
+            return null;
+        }
+    }
+
+    /* ================= STATE ================= */
     let models = {};
     let currentTab = null;
     let tabIndex = 1;
-
     let changeDisposable = null;
 
-    function attachChangeListener() {
+    const tabsContainer = document.getElementById("tabs");
+    const addTabBtn = document.getElementById("addTab");
+
+    function bindChange() {
         if (changeDisposable) changeDisposable.dispose();
-        changeDisposable = editor.onDidChangeModelContent(() => {});
+        changeDisposable = editor.onDidChangeModelContent(save);
     }
+
+    /* ================= TAB CORE ================= */
 
     function createTab(name, content = "") {
         if (models[name]) return switchTab(name);
@@ -206,6 +219,7 @@ require(["vs/editor/editor.main"], function () {
 
         switchTab(name);
         renderTabs();
+        save();
     }
 
     function switchTab(name) {
@@ -214,8 +228,9 @@ require(["vs/editor/editor.main"], function () {
         currentTab = name;
         editor.setModel(models[name]);
 
-        attachChangeListener();
+        bindChange();
         renderTabs();
+        save();
     }
 
     function closeTab(name) {
@@ -225,64 +240,62 @@ require(["vs/editor/editor.main"], function () {
         delete models[name];
 
         const keys = Object.keys(models);
-        if (keys.length) switchTab(keys[0]);
-        else createTab("main.lua");
+        if (keys.length) {
+            switchTab(keys[0]);
+        } else {
+            createTab("main.lua");
+        }
 
         renderTabs();
+        save();
     }
 
     function renameTab(oldName) {
         const newName = prompt("Rename tab:", oldName);
         if (!newName || newName === oldName) return;
-        if (models[newName]) return alert("Tab already exists");
+        if (models[newName]) return alert("Tab already exists!");
 
         models[newName] = models[oldName];
         delete models[oldName];
 
         if (currentTab === oldName) currentTab = newName;
 
+        switchTab(newName);
         renderTabs();
+        save();
     }
+
+    /* ================= RENDER ================= */
 
     function renderTabs() {
         document.querySelectorAll(".tab").forEach(t => t.remove());
 
         Object.keys(models).forEach(name => {
             const tab = document.createElement("div");
-
             tab.className = "tab" + (currentTab === name ? " active" : "");
 
-            const text = document.createElement("span");
-            text.textContent = name;
+            const label = document.createElement("span");
+            label.textContent = name;
+            label.ondblclick = () => renameTab(name);
 
             const close = document.createElement("span");
-            close.textContent = "×";
             close.className = "close";
-
+            close.textContent = "×";
             close.onclick = (e) => {
                 e.stopPropagation();
                 closeTab(name);
             };
 
-            tab.onclick = () => switchTab(name);
-
-            tab.ondblclick = () => renameTab(name);
-
-            tab.oncontextmenu = (e) => {
-                e.preventDefault();
-                const ok = confirm("Rename tab?\nOK = rename\nCancel = close");
-                if (ok) renameTab(name);
-                else closeTab(name);
-            };
-
-            tab.appendChild(text);
+            tab.appendChild(label);
             tab.appendChild(close);
+
+            tab.onclick = () => switchTab(name);
 
             tabsContainer.insertBefore(tab, addTabBtn);
         });
     }
 
-    // ================= EXPOSE =================
+    /* ================= EXPOSE ================= */
 
     window.GetText = () => editor.getValue();
     window.SetText = (t) => editor.setValue(t);
@@ -290,10 +303,33 @@ require(["vs/editor/editor.main"], function () {
     window.CreateTab = createTab;
     window.SwitchTab = switchTab;
     window.CloseTab = closeTab;
+    window.RenameTab = renameTab;
 
-    // ================= INIT =================
+    window.SwitchWordWrap = v => editor.updateOptions({ wordWrap: v ? "on" : "off" });
+    window.SwitchMinimap = v => editor.updateOptions({ minimap: { enabled: v } });
+    window.SwitchLineNumbers = v => editor.updateOptions({ lineNumbers: v ? "on" : "off" });
+    window.SwitchFontSize = v => editor.updateOptions({ fontSize: v });
 
-    createTab("main.lua");
+    /* ================= RESTORE ================= */
+
+    const saved = load();
+
+    if (saved && saved.tabs && Object.keys(saved.tabs).length) {
+        if (saved.tabIndex) tabIndex = saved.tabIndex;
+
+        for (const [name, content] of Object.entries(saved.tabs)) {
+            models[name] = monaco.editor.createModel(content, "lua");
+        }
+
+        const first = saved.currentTab && models[saved.currentTab]
+            ? saved.currentTab
+            : Object.keys(models)[0];
+
+        switchTab(first);
+        renderTabs();
+    } else {
+        createTab("main.lua");
+    }
 
     addTabBtn.onclick = () => {
         createTab("tab_" + tabIndex++ + ".lua");
